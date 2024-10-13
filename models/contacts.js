@@ -1,18 +1,30 @@
- const fs = require('fs/promises')
 const { v4: uuidv4 } = require('uuid');
-const path= require("path");
-const contactsPath = path.join(__dirname, "contacts.json");
+const mongoose = require('mongoose');
+
+const contactSchema = new mongoose.Schema({
+    name: {
+        type: String,
+        required: [true, 'Set name for contact'],
+      },
+      email: {
+        type: String,
+      },
+      phone: {
+        type: String,
+      },
+      favorite: {
+        type: Boolean,
+        default: false,
+      },
+});
+
+const Contact = mongoose.model('Contact', contactSchema);
+
+
 
 // Functie pentru listarea contactelor
 const listContacts = async () => {
-    try {
-        const data = await fs.readFile(contactsPath, 'utf-8');
-        const objectJson = JSON.parse(data);
-        return objectJson; // Returnăm lista contactelor
-    } catch (error) {
-        console.error("Error:", error.message);
-        throw error;
-    }
+  return await Contact.find();
 };
 
 
@@ -20,25 +32,31 @@ const listContacts = async () => {
 // Functie pentru a primi un contact dupa id
 
 const getContactById = async (contactId) => {
- const contacts = await listContacts();
- const contact = contacts.find(contact =>contact.id===contactId);
- return contact || null;
-};
+    try{
+        
+            const contact = await Contact.findById(contactId);
+        if(!contact){
+            throw new Error(`Contact with id ${contactId} not found`);
+           }
+           return contact;
 
+    }catch(error){
+        throw new Error(`Error finding contact: ${error.message}`);
+
+    }
+
+
+}
 
 
 // functie pentru inlaturarea unui contact
 
 const removeContact = async (contactId) => {
-    const contacts = await listContacts();
-    const updateContacts = contacts.filter(contact => contact.id !== contactId);
-    
-    if (contacts.length === updateContacts.length) {
-        return null; // Dacă lungimea este aceeași, contactul nu a fost găsit
-    }
-
-    await fs.writeFile(contactsPath, JSON.stringify(updateContacts, null, 2));
-    return true;
+    const deletedContacts = await Contact.findByIdAndDelete(contactId);
+if(!deletedContacts){
+    return null;
+}
+return deletedContacts;
 };
 
 
@@ -54,10 +72,13 @@ const addContact = async (body) => {
         phone,
     };
 
-    const contacts = await listContacts();
-    contacts.push(newContact);
-    await fs.writeFile(contactsPath, JSON.stringify(contacts, null, 2));
-return newContact;
+ const contact = newContact(body);
+ try{
+    const savedContact = await contact.save();
+    return savedContact;
+ }catch(error){
+    throw new Error(`Error adding contact: ${error.message}`);
+ }
 };
 
 
@@ -65,18 +86,32 @@ return newContact;
 
 
 const updateContact = async (contactId, body) => {
-    const contacts = await listContacts();
-    const index = contacts.findIndex(contact => contact.id === contactId);
+
+    try
+    {  const updatedContacts = await Contact.findByIdAndUpdate(contactId, body, {new:true, runValidators:true});
     
-    if (index === -1) {
+    if (!updatedContacts) {
         return null; // Dacă contactul nu a fost găsit
     }
-
-    contacts[index] = { ...contacts[index], ...body }; // Actualizează contactul cu noile date
-    await fs.writeFile(contactsPath, JSON.stringify(contacts, null, 2));
-    return contacts[index];
+return updatedContacts;
+}catch(error){
+    throw new Error(`Error updating contact: ${error.message}`);
+}
+  
 };
 
+// functia verificare pentru favorite
+
+const updateStatusContact = async (contactId, body) =>{
+try{
+    const newUpdatedContact = await Contact.findByIdAndUpdate(contactId, body, {new:true, runValidators:true});
+    return newUpdatedContact;
+
+}catch(error){
+    throw new Error(`Error updating contact status: ${error.message}`);
+}
+
+};
 
 module.exports = {
   listContacts,
@@ -84,4 +119,5 @@ module.exports = {
   removeContact,
   addContact,
   updateContact,
+  updateStatusContact
 };
