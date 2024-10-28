@@ -1,5 +1,5 @@
 const express = require('express')
-
+const {updateStatusContact} = require('../../models/contacts')
 const router = express.Router()
 const{listContacts, getContactById, removeContact, addContact, updateContact} = require("../../models/contacts")
 const Joi = require("joi");
@@ -89,6 +89,26 @@ router.put('/:contactId', async (req, res, next) => {
   }catch(error){
     next(error)
   }
+});
+
+router.patch('/:contactId', async( req, res, next ) =>{
+  const {contactId} = req.params;
+  const {favorite} = req.body;
+  if(favorite===undefined){
+    return res.status(400).json({message:"missing field favorite" })
+  }
+try{
+  const newUpdatedContact = await updateStatusContact(contactId,{favorite});
+  if (!newUpdatedContact){
+    return res.status(404).json({ message: "Not found" });
+  }
+
+  return res.status(200).json(newUpdatedContact);
+}catch(error){
+
+  next(error);
+}
+
 })
 
 module.exports = router;
