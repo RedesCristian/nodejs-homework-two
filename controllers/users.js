@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/users');
+const gravatar = require('gravatar');
+
 
 
 
@@ -80,6 +82,25 @@ const getCurrentUser = async (req, res) => {
       subscription,
     });
   };
+
+  // Functia pentru integrare Gravatar
+
+  const uploadAvatar = (req, res) =>{
+    const email = req.body.email;
+    let avatarUrl;
+
+    if(req.file){
+      avatarUrl = `/public/avatars/${req.file.filename}`;
+    }else{
+      avatarUrl = gravatar.url(email,{s: '200', r: 'pg', d: 'retro'});
+    }
+
+    res.json({
+      message:'Avatar updated successfully',
+      avatarUrl:avatarUrl
+    });
+  }
+
   
 
 module.exports = {
@@ -87,4 +108,5 @@ module.exports = {
   login,
   logout,
   getCurrentUser,
+  uploadAvatar
 };
