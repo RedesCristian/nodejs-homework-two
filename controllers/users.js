@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/users');
 const gravatar = require('gravatar');
+const { v4: uuidv4 } = require('uuid');
+const { sendVerificationEmail } = require('../services/emailService');
 
 
 
@@ -100,13 +102,76 @@ const getCurrentUser = async (req, res) => {
       avatarUrl:avatarUrl
     });
   }
+  const verifyUser = async (req, res) => {
+    const { verificationToken } = req.params;
 
-  
+    try {
+        const user = await User.findOne({ verificationToken });
 
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        user.verify = true;
+        user.verificationToken = null;
+        await user.save();
+
+        res.status(200).json({ message: 'Verification successful' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+const registerUser = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+      const verificationToken = uuidv4();
+      const user = new User({
+          email,
+          password,
+          verificationToken,
+      });
+
+      await user.save();
+
+      await sendVerificationEmail(email, verificationToken);
+
+      res.status(201).json({ message: 'User registered. Check your email to verify your account.' });
+  } catch (error) {
+      res.status(400).json({ message: error.message });
+  }
+};
+const resendVerificationEmail = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+      return res.status(400).json({ message: 'missing required field email' });
+  }
+
+  try {
+      const user = await User.findOne({ email });
+
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
+
+      if (user.verify) {
+          return res.status(400).json({ message: 'Verification has already been passed' });
+      }
+
+      await sendVerificationEmail(user.email, user.verificationToken);
+      res.status(200).json({ message: 'Verification email sent' });
+  } catch (error) {
+      res.status(500).json({ message: error.message });
+  }
+};
 module.exports = {
   signup,
   login,
   logout,
   getCurrentUser,
-  uploadAvatar
+  uploadAvatar,
+  verifyUser,
+  registerUser,
+  resendVerificationEmail
 };
